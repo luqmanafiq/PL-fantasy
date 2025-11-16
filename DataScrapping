@@ -1,0 +1,105 @@
+import requests
+import pandas as pd
+
+def get_fpl_data():
+    """
+    Fetches all bootstrap-static data from the FPL API.
+    This includes all players, teams, positions, and stats.
+    """
+    # URL for the FPL bootstrap-static API (all data)
+    url = "https://fantasy.premierleague.com/api/bootstrap-static/"
+    
+    try:
+        print("Fetching data from FPL API...")
+        response = requests.get(url)
+        # Raise an exception for bad status codes (like 404 or 500)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return None
+
+    # Parse the JSON response
+    try:
+        data = response.json()
+        return data
+    except requests.exceptions.JSONDecodeError:
+        print("Error: Failed to decode JSON response.")
+        return None
+
+def process_fpl_data(data):
+    """
+    Processes the raw FPL data into a clean pandas DataFrame.
+    """
+    if not data:
+        print("No data to process.")
+        return None
+
+    print("Data fetched successfully. Processing...")
+    
+    # Extract the main data categories
+    players = data.get('elements', [])
+    teams = data.get('teams', [])
+    positions = data.get('element_types', [])
+
+    # --- Create helper maps for easier lookups ---
+    # Map team ID -> team name (e.g., 1 -> "Arsenal")
+    team_map = {team['id']: team['name'] for team in teams}
+    
+    # Map position ID -> position name (e.g., 1 -> "GKP")
+    pos_map = {pos['id']: pos['singular_name_short'] for pos in positions}
+
+    # --- Process player data ---
+    player_data = []
+    for p in players:
+        player_data.append({
+            'id': p.get('id'),
+            'first_name': p.get('first_name'),
+            'second_name': p.get('second_name'),
+            'web_name': p.get('web_name'),
+            'team': team_map.get(p.get('team')),
+            'position': pos_map.get(p.get('element_type')),
+            'cost': p.get('now_cost') / 10.0,  # Cost is given in tenths (e.g., 125 -> 12.5)
+            'total_points': p.get('total_points'),
+            'selected_by_percent': p.get('selected_by_percent'),
+            'goals': p.get('goals_scored'),
+            'assists': p.get('assists'),
+            'clean_sheets': p.get('clean_sheets'),
+            'minutes': p.get('minutes'),
+            'bps': p.get('bps'), # Bonus Points System
+            'influence': p.get('influence'),
+            'creativity': p.get('creativity'),
+            'threat': p.get('threat'),
+            'ict_index': p.get('ict_index'), # Influence, Creativity, Threat
+        })
+
+    # Create a pandas DataFrame
+    df = pd.DataFrame(player_data)
+    
+    return df
+
+# --- Main script execution ---
+if __name__ == "__main__":
+    
+    # 1. Fetch the data
+    raw_data = get_fpl_data()
+    
+    if raw_data:
+        # 2. Process the data
+        player_df = process_fpl_data(raw_data)
+        
+        if player_df is not None:
+            # 3. Display the results
+            print(f"\nSuccessfully scraped {len(player_df)} players for the 2025/26 season.")
+            
+            # Show the first 5 rows of the DataFrame
+            print("\n--- Sample Data (Top 5 rows) ---")
+            print(player_df.head())
+            
+            # Show top 10 players by total points
+            print("\n--- Top 10 Players by Total Points ---")
+            top_10 = player_df.sort_values(by='total_points', ascending=False).head(10)
+            print(top_10[['web_name', 'team', 'position', 'total_points', 'cost']])
+
+            # Save to a CSV file
+            player_df.to_csv("fpl_25_26_data.csv", index=False)
+            print("\nData saved to fpl_25_26_data.csv")
