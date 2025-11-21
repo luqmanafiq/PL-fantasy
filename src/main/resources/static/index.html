@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PL Fantasy Team Builder</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom CSS for the football pitch */
+        .pitch {
+            background: linear-gradient(to bottom, #008000 0%, #006400 100%); /* Darker green gradient */
+            background-size: 100% 100%;
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            aspect-ratio: 7 / 10; /* Realistic pitch-like ratio */
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Pitch markings */
+        .pitch-line {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .halfway-line {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            left: 0;
+        }
+        .center-circle {
+            width: 20%;
+            aspect-ratio: 1 / 1;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .penalty-box-top {
+            width: 60%;
+            height: 18%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: none;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .penalty-box-bottom {
+            width: 60%;
+            height: 18%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-bottom: none;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Player slots layout */
+        .pitch-slots {
+            display: grid;
+            grid-template-rows: repeat(5, 1fr);
+            height: 100%;
+            position: relative;
+            z-index: 10;
+        }
+        .position-row {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        
+        .player-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 70px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .player-slot.filled {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+        
+        .player-slot .name {
+            font-weight: 600;
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            padding: 0 2px;
+        }
+        
+        .player-slot .price {
+            font-size: 10px;
+            color: #cbd5e1; /* slate-300 */
+        }
+        
+        .player-shirt {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 4px;
+        }
+
+        /* Player list scrollbar */
+        #player-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #player-list-container::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        #player-list-container::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 4px;
+        }
+        #player-list-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
+        
+        /* Message Box */
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(200%);
+            transition: all 0.3s ease-in-out;
+            z-index: 100;
+        }
+        #message-box.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-slate-100">
+
+    <!-- Header -->
+    <header class="bg-gray-800 shadow-md">
+        <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-white">
+                <span class="text-purple-400">PL</span>-Fantasy Builder
+            </h1>
+            <button class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                Save Team
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex flex-col lg:flex-row" style="height: calc(100vh - 60px);">
+
+        <!-- Left Column: Player Selection -->
+        <div class="w-full lg:w-3/5 p-4 overflow-hidden flex flex-col">
+            <!-- Position Tabs -->
+            <nav class="flex space-x-2 mb-4" id="position-tabs">
+                <button data-pos="GKP" class="pos-tab flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg font-semibold">Goalkeepers</button>
+                <button data-pos="DEF" class="pos-tab flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold transition">Defenders</button>
+                <button data-pos="MID" class="pos-tab flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold transition">Midfielders</button>
+                <button data-pos="FWD" class="pos-tab flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold transition">Forwards</button>
+            </nav>
+
+            <!-- Filters -->
+            <div class="flex space-x-2 mb-4">
+                <input type="text" id="search-filter" placeholder="Search player..." class="flex-1 p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <select id="team-filter" class="p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="ALL">All Teams</option>
+                    <!-- Team options will be populated by JS -->
+                </select>
+                <select id="sort-filter" class="p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <option value="price_desc">Price (High-Low)</option>
+                    <option value="price_asc">Price (Low-High)</option>
+                    <option value="points_desc">Total Points</option>
+                </select>
+            </div>
+
+            <!-- Player List -->
+            <div id="player-list-container" class="flex-1 overflow-y-auto space-y-2 pr-2">
+                <!-- Player cards will be populated by JS -->
+            </div>
+        </div>
+
+        <!-- Right Column: Team View -->
+        <div class="w-full lg:w-2/5 p-4 bg-gray-800 shadow-inner flex flex-col space-y-4 overflow-y-auto">
+            
+            <!-- Stats Panel -->
+            <div id="stats-panel" class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <div class="text-sm text-gray-400">Players Selected</div>
+                    <div id="players-selected" class="text-2xl font-bold">0 / 15</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-400">Budget Remaining</div>
+                    <div id="budget-remaining" class="text-2xl font-bold">£100.0m</div>
+                </div>
+                 <div>
+                    <div class="text-sm text-gray-400">Gameweek</div>
+                    <div id="gameweek" class="text-2xl font-bold">1</div>
+                </div>
+            </div>
+
+            <!-- Pitch View -->
+            <div id="pitch-container">
+                <div class="pitch">
+                    <!-- Pitch Markings -->
+                    <div class="pitch-line halfway-line"></div>
+                    <div class="center-circle"></div>
+                    <div class="pitch-line penalty-box-top"></div>
+                    <div class="pitch-line penalty-box-bottom"></div>
+
+                    <!-- Player Slots -->
+                    <div class="pitch-slots">
+                        <div class="position-row" id="fwd-row">
+                            <div id="fwd-slot-0" class="player-slot">FWD</div>
+                            <div id="fwd-slot-1" class="player-slot">FWD</div>
+                            <div id="fwd-slot-2" class="player-slot">FWD</div>
+                        </div>
+                        <div class="position-row" id="mid-row">
+                            <div id="mid-slot-0" class="player-slot">MID</div>
+                            <div id="mid-slot-1" class="player-slot">MID</div>
+                            <div id="mid-slot-2" class="player-slot">MID</div>
+                            <div id="mid-slot-3" class="player-slot">MID</div>
+                            <div id="mid-slot-4" class="player-slot">MID</div>
+                        </div>
+                        <div class="position-row" id="def-row">
+                            <div id="def-slot-0" class="player-slot">DEF</div>
+                            <div id="def-slot-1" class="player-slot">DEF</div>
+                            <div id="def-slot-2" class="player-slot">DEF</div>
+                            <div id="def-slot-3" class="player-slot">DEF</div>
+                            <div id="def-slot-4" class="player-slot">DEF</div>
+                        </div>
+                        <div class="position-row" id="gkp-row">
+                            <div id="gkp-slot-0" class="player-slot">GKP</div>
+                            <div id="gkp-slot-1" class="player-slot">GKP</div>
+                        </div>
+                        <div class="position-row" id="bench-row">
+                            <!-- This is just a label, bench is handled below -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bench -->
+            <div>
+                <h3 class="text-lg font-semibold mb-2 text-center text-gray-400">Bench</h3>
+                <div id="bench" class="grid grid-cols-4 gap-2">
+                    <div id="bench-slot-0" class="player-slot h-24">BENCH</div>
+                    <div id="bench-slot-1" class="player-slot h-24">BENCH</div>
+                    <div id="bench-slot-2" class="player-slot h-24">BENCH</div>
+                    <div id="bench-slot-3" class="player-slot h-24">BENCH</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+    
+    <!-- Message Box -->
+    <div id="message-box" class="p-4 rounded-lg shadow-lg text-white font-semibold">
+        <span id="message-text"></span>
+    </div>
+
+    <!-- Main Application Logic -->
+    <script>
+        // --- GLOBAL STATE ---
+        let allPlayers = {}; // Master list, indexed by player.id
+        let allTeams = {}; // Master list of teams, indexed by team.id
+        let selectedTeam = { GKP: [], DEF: [], MID: [], FWD: [] };
+        let budget = 100.0;
+        let totalPlayers = 0;
+        let currentPositionFilter = 'GKP';
+
+        const TEAM_CONSTRAINTS = {
+            GKP: 2,
+            DEF: 5,
+            MID: 5,
+            FWD: 3,
+            TOTAL: 15,
+            PER_TEAM: 3
+        };
+
+        // --- DOM ELEMENTS ---
+        const playerListContainer = document.getElementById('player-list-container');
+        const budgetEl = document.getElementById('budget-remaining');
+        const playersSelectedEl = document.getElementById('players-selected');
+        const positionTabs = document.getElementById('position-tabs');
+        const searchFilter = document.getElementById('search-filter');
+        const teamFilter = document.getElementById('team-filter');
+        const sortFilter = document.getElementById('sort-filter');
+
+        // --- MOCK DATA (Replace with API call) ---
+        function fetchMockData() {
+            // Mock Teams
+            const teams = [
+                { id: 1, name: 'Arsenal', short_name: 'ARS' },
+                { id: 2, name: 'Aston Villa', short_name: 'AVL' },
+                { id: 3, name: 'Liverpool', short_name: 'LIV' },
+                { id: 4, name: 'Man City', short_name: 'MCI' },
+                { id: 5, name: 'Spurs', short_name: 'TOT' },
+                { id: 6, name: 'Man Utd', short_name: 'MUN' },
+            ];
+            teams.forEach(team => allTeams[team.id] = team);
+
+            // Mock Players
+            const players = [
+                // GKP
+                { id: 1, name: 'Raya', position: 'GKP', team_id: 1, price: 5.1, points: 90 },
+                { id: 2, name: 'Martinez', position: 'GKP', team_id: 2, price: 5.0, points: 100 },
+                { id: 3, name: 'Alisson', position: 'GKP', team_id: 3, price: 5.7, points: 110 },
+                { id: 4, name: 'Ederson', position: 'GKP', team_id: 4, price: 5.5, points: 105 },
+                { id: 5, name: 'Vicario', position: 'GKP', team_id: 5, price: 5.3, points: 95 },
+                { id: 6, name: 'Onana', position: 'GKP', team_id: 6, price: 4.8, points: 85 },
+                
+                // DEF
+                { id: 10, name: 'Saliba', position: 'DEF', team_id: 1, price: 5.9, points: 120 },
+                { id: 11, name: 'White', position: 'DEF', team_id: 1, price: 6.1, points: 130 },
+                { id: 12, name: 'Gabriel', position: 'DEF', team_id: 1, price: 5.4, points: 115 },
+                { id: 13, name: 'Cash', position: 'DEF', team_id: 2, price: 5.0, points: 90 },
+                { id: 14, name: 'V. van Dijk', position: 'DEF', team_id: 3, price: 6.5, points: 125 },
+                { id: 15, name: 'Alexander-Arnold', position: 'DEF', team_id: 3, price: 8.5, points: 150 },
+                { id: 16, name: 'Walker', position: 'DEF', team_id: 4, price: 5.5, points: 100 },
+                { id: 17, name: 'Gvardiol', position: 'DEF', team_id: 4, price: 5.1, points: 95 },
+                { id: 18, name: 'Porro', position: 'DEF', team_id: 5, price: 5.9, points: 110 },
+                { id: 19, name: 'Dalot', position: 'DEF', team_id: 6, price: 5.1, points: 88 },
+                
+                // MID
+                { id: 20, name: 'Saka', position: 'MID', team_id: 1, price: 8.9, points: 180 },
+                { id: 21, name: 'Odegaard', position: 'MID', team_id: 1, price: 8.5, points: 160 },
+                { id: 22, name: 'Watkins', position: 'MID', team_id: 2, price: 9.0, points: 200 }, // Actually FWD, but for demo...
+                { id: 23, name: 'Salah', position: 'MID', team_id: 3, price: 13.3, points: 230 },
+                { id: 24, name: 'Diaz', position: 'MID', team_id: 3, price: 7.5, points: 130 },
+                { id: 25, name: 'Foden', position: 'MID', team_id: 4, price: 8.1, points: 170 },
+                { id: 26, name: 'De Bruyne', position: 'MID', team_id: 4, price: 10.5, points: 110 },
+                { id: 27, name: 'Son', position: 'MID', team_id: 5, price: 9.9, points: 210 },
+                { id: 28, name: 'Maddison', position: 'MID', team_id: 5, price: 7.8, points: 140 },
+                { id: 29, name: 'Fernandes', position: 'MID', team_id: 6, price: 8.3, points: 155 },
+                { id: 30, name: 'Garnacho', position: 'MID', team_id: 6, price: 5.0, points: 105 },
+
+                // FWD
+                { id: 40, name: 'Haaland', position: 'FWD', team_id: 4, price: 14.3, points: 220 },
+                { id: 41, name: 'Darwin', position: 'FWD', team_id: 3, price: 7.7, points: 140 },
+                { id: 42, name: 'Hojlund', position: 'FWD', team_id: 6, price: 7.1, points: 100 },
+                { id: 43, name: 'Solanke', position: 'FWD', team_id: 2, price: 7.2, points: 165 }, // Not AVL, but for demo
+                { id: 44, name: 'Jesus', position: 'FWD', team_id: 1, price: 7.9, points: 110 },
+            ];
+            players.forEach(player => allPlayers[player.id] = player);
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMockData();
+            populateTeamFilter();
+            renderPlayerList();
+            setupEventListeners();
+            updateStatsPanel();
+        });
+
+        function populateTeamFilter() {
+            Object.values(allTeams).forEach(team => {
+                const option = document.createElement('option');
+                option.value = team.id;
+                option.textContent = team.name;
+                teamFilter.appendChild(option);
+            });
+        }
+        
+        function setupEventListeners() {
+            // Position tabs
+            positionTabs.addEventListener('click', (e) => {
+                if (e.target.classList.contains('pos-tab')) {
+                    const pos = e.target.dataset.pos;
+                    currentPositionFilter = pos;
+                    
+                    // Update tab styles
+                    positionTabs.querySelectorAll('.pos-tab').forEach(tab => {
+                        tab.classList.remove('bg-purple-600');
+                        tab.classList.add('bg-gray-700', 'hover:bg-gray-600');
+                    });
+                    e.target.classList.add('bg-purple-600');
+                    e.target.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                    
+                    renderPlayerList();
+                }
+            });
+            
+            // Player List (Event Delegation)
+            playerListContainer.addEventListener('click', (e) => {
+                const card = e.target.closest('.player-card');
+                if (card) {
+                    handlePlayerClick(card.dataset.playerId);
+                }
+            });
+            
+            // Filters
+            searchFilter.addEventListener('keyup', renderPlayerList);
+            teamFilter.addEventListener('change', renderPlayerList);
+            sortFilter.addEventListener('change', renderPlayerList);
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function renderPlayerList() {
+            let filteredPlayers = Object.values(allPlayers);
+            
+            // 1. Filter by Position
+            filteredPlayers = filteredPlayers.filter(p => p.position === currentPositionFilter);
+            
+            // 2. Filter by Search Query
+            const query = searchFilter.value.toLowerCase();
+            if (query) {
+                filteredPlayers = filteredPlayers.filter(p => p.name.toLowerCase().includes(query));
+            }
+            
+            // 3. Filter by Team
+            const selectedTeamId = teamFilter.value;
+            if (selectedTeamId !== 'ALL') {
+                filteredPlayers = filteredPlayers.filter(p => p.team_id == selectedTeamId);
+            }
+            
+            // 4. Sort
+            const sortKey = sortFilter.value;
+            filteredPlayers.sort((a, b) => {
+                if (sortKey === 'price_desc') return b.price - a.price;
+                if (sortKey === 'price_asc') return a.price - b.price;
+                if (sortKey === 'points_desc') return b.points - a.points;
+                return 0;
+            });
+            
+            // 5. Generate HTML
+            playerListContainer.innerHTML = '';
+            if (filteredPlayers.length === 0) {
+                 playerListContainer.innerHTML = `<div class="text-gray-400 text-center p-8">No players match your filter.</div>`;
+                 return;
+            }
+            
+            const html = filteredPlayers.map(player => {
+                const team = allTeams[player.team_id];
+                const isSelected = selectedTeam[player.position].includes(player.id);
+                
+                return `
+                    <div class="player-card flex items-center justify-between p-3 rounded-lg bg-gray-700 ${isSelected ? 'ring-2 ring-purple-500' : 'cursor-pointer hover:bg-gray-600'} transition" data-player-id="${player.id}">
+                        <div class="flex items-center space-x-3">
+                            ${getPlayerShirtSVG(team.short_name)}
+                            <div>
+                                <div class="font-bold text-lg">${player.name}</div>
+                                <div class="text-sm text-gray-400">${team.name}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-6">
+                             <div class="text-center">
+                                <div class="text-xs text-gray-400">Pts</div>
+                                <div class="font-semibold text-lg">${player.points}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xs text-gray-400">Price</div>
+                                <div class="font-bold text-lg text-purple-300">£${player.price.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            playerListContainer.innerHTML = html;
+        }
+        
+        function updateStatsPanel() {
+            playersSelectedEl.textContent = `${totalPlayers} / ${TEAM_CONSTRAINTS.TOTAL}`;
+            budgetEl.textContent = `£${budget.toFixed(1)}m`;
+            
+             // Add warning colors if constraints are met
+            if (totalPlayers === TEAM_CONSTRAINTS.TOTAL) {
+                playersSelectedEl.classList.add('text-yellow-400');
+            } else {
+                playersSelectedEl.classList.remove('text-yellow-400');
+            }
+            
+            if (budget <= 0) {
+                budgetEl.classList.add('text-red-500');
+            } else {
+                budgetEl.classList.remove('text-red-500');
+            }
+        }
+        
+        function renderTeamOnPitch() {
+            // Clear all slots
+            document.querySelectorAll('.player-slot').forEach(slot => {
+                slot.innerHTML = `<span class="text-xs opacity-50">${slot.id.split('-')[0].toUpperCase()}</span>`;
+                slot.classList.remove('filled');
+            });
+
+            let benchPlayers = [];
+            const startingXI = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+            
+            // --- Determine Starting XI vs Bench ---
+            // This is a simple algorithm. A real one would be more complex (e.g., valid formations).
+            // Here, we just fill the pitch slots and the rest go to the bench.
+            const formation = { GKP: 1, DEF: 4, MID: 4, FWD: 2 }; // Default: 4-4-2
+            // We'll just fill the first 11 players onto the pitch and the rest on the bench.
+            
+            let playerCounter = 0;
+            
+            ['GKP', 'DEF', 'MID', 'FWD'].forEach(pos => {
+                selectedTeam[pos].forEach(playerId => {
+                    const player = allPlayers[playerId];
+                    const team = allTeams[player.team_id];
+                    const playerHtml = `
+                        ${getPlayerShirtSVG(team.short_name, 'player-shirt')}
+                        <div class="name">${player.name}</div>
+                        <div class="price">£${player.price.toFixed(1)}</div>
+                    `;
+                    
+                    let slot;
+                    if (playerCounter < 11) {
+                        // Find the next available slot for this position
+                        let slotIndex = 0;
+                        while(true) {
+                            slot = document.getElementById(`${pos.toLowerCase()}-slot-${slotIndex}`);
+                            if (!slot) { 
+                                // No more slots for this pos on pitch, move to bench
+                                slot = document.getElementById(`bench-slot-${benchPlayers.length}`);
+                                if(slot) benchPlayers.push(player);
+                                break; 
+                            }
+                            if (!slot.classList.contains('filled')) {
+                                break;
+                            }
+                            slotIndex++;
+                        }
+                        playerCounter++;
+                    } else {
+                        // Bench
+                        slot = document.getElementById(`bench-slot-${benchPlayers.length}`);
+                        if(slot) benchPlayers.push(player);
+                    }
+                    
+                    if (slot) {
+                        slot.innerHTML = playerHtml;
+                        slot.classList.add('filled');
+                    }
+                });
+            });
+        }
+
+        // --- CORE LOGIC ---
+        function handlePlayerClick(playerId) {
+            const player = allPlayers[playerId];
+            if (!player) return;
+
+            const isSelected = selectedTeam[player.position].includes(player.id);
+
+            if (isSelected) {
+                // --- REMOVE PLAYER ---
+                removePlayer(player);
+            } else {
+                // --- ADD PLAYER ---
+                // Check constraints
+                if (totalPlayers >= TEAM_CONSTRAINTS.TOTAL) {
+                    showMessage('Team is full (15 players)', 'error');
+                    return;
+                }
+                if (selectedTeam[player.position].length >= TEAM_CONSTRAINTS[player.position]) {
+                    showMessage(`You can only have ${TEAM_CONSTRAINTS[player.position]} players in this position`, 'error');
+                    return;
+                }
+                if (budget - player.price < 0) {
+                    showMessage(`Not enough budget (£${budget.toFixed(1)}m remaining)`, 'error');
+                    return;
+                }
+                
+                // Check per-team constraint
+                const playersFromSameTeam = getPlayersFromTeam(player.team_id);
+                if (playersFromSameTeam.length >= TEAM_CONSTRAINTS.PER_TEAM) {
+                    showMessage(`You can only select ${TEAM_CONSTRAINTS.PER_TEAM} players from ${allTeams[player.team_id].name}`, 'error');
+                    return;
+                }
+                
+                addPlayer(player);
+            }
+        }
+        
+        function addPlayer(player) {
+            selectedTeam[player.position].push(player.id);
+            totalPlayers++;
+            budget -= player.price;
+            
+            updateStatsPanel();
+            renderTeamOnPitch();
+            renderPlayerList(); // To update the selected state
+            showMessage(`${player.name} added`, 'success');
+        }
+
+        function removePlayer(player) {
+            selectedTeam[player.position] = selectedTeam[player.position].filter(id => id !== player.id);
+            totalPlayers--;
+            budget += player.price;
+            
+            updateStatsPanel();
+            renderTeamOnPitch();
+            renderPlayerList(); // To update the selected state
+            showMessage(`${player.name} removed`, 'info');
+        }
+
+        // --- HELPER FUNCTIONS ---
+        function getPlayersFromTeam(teamId) {
+            let count = [];
+            Object.values(selectedTeam).forEach(positionArray => {
+                positionArray.forEach(playerId => {
+                    if (allPlayers[playerId].team_id === teamId) {
+                        count.push(playerId);
+                    }
+                });
+            });
+            return count;
+        }
+        
+        function getPlayerShirtSVG(teamShortName, cssClass = 'w-8 h-8') {
+            // In a real app, you'd have team-specific colors
+            const colors = {
+                'ARS': '#EF0107', 'AVL': '#95BFE5', 'LIV': '#D00027',
+                'MCI': '#6CABDD', 'TOT': '#FFFFFF', 'MUN': '#DA291C',
+                'default': '#9CA3AF' // gray-400
+            };
+            const color = colors[teamShortName] || colors['default'];
+            
+            return `
+                <svg class="${cssClass}" viewBox="0 0 36 36" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M29.6,10.5c-2-1.8-4.5-3-7.1-3c-1.8,0-3.6,0.5-5.2,1.4c-0.2,0.1-0.3,0.1-0.4,0.1c-1.6-0.9-3.4-1.4-5.2-1.4
+                        c-2.6,0-5.1,1.1-7.1,3C2.4,12.2,1,15,1,18v12.2c0,0.4,0.3,0.8,0.8,0.8h32.5c0.4,0,0.8-0.3,0.8-0.8V18
+                        C35,15,33.6,12.2,29.6,10.5z M13,10.1c1.5-0.8,3.2-1.3,5-1.3s3.5,0.5,5,1.3l2.8-2.6C24,6,22.1,5.2,20,5.2
+                        c-1.9,0-3.8,0.7-5.3,1.9L13,10.1z"/>
+                </svg>
+            `;
+        }
+        
+        let messageTimer;
+        function showMessage(message, type = 'info') {
+            const box = document.getElementById('message-box');
+            const text = document.getElementById('message-text');
+            
+            text.textContent = message;
+            
+            // Reset classes
+            box.classList.remove('bg-green-500', 'bg-red-500', 'bg-blue-500');
+            
+            if (type === 'success') {
+                box.classList.add('bg-green-500');
+            } else if (type === 'error') {
+                box.classList.add('bg-red-500');
+            } else {
+                box.classList.add('bg-blue-500');
+            }
+            
+            box.classList.add('show');
+            
+            // Clear previous timer
+            if (messageTimer) {
+                clearTimeout(messageTimer);
+            }
+            
+            // Hide after 3 seconds
+            messageTimer = setTimeout(() => {
+                box.classList.remove('show');
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
